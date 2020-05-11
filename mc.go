@@ -11,13 +11,13 @@ import (
 
 type Microcode struct {
 	Header             Header
-	Date Date
+	Date               Date
 	CalculatedChecksum uint32
 	Platforms          []uint8
 	HeaderExtra        *ExtraHeader
 	Encryption         *RSAHeader
 	HeaderExtended     *ExtendedHeader
-	Raw []byte
+	Raw                []byte
 }
 
 //Taken from MCE.py
@@ -37,9 +37,9 @@ type Header struct {
 	Reserved1          [12]uint8 // 0x24 00 * 12 (Pattern)
 }
 type Date struct {
-	Year               uint16   // 0x08
-	Day                uint8     // 0x0A
-	Month              uint8     // 0x0B
+	Year  uint16 // 0x08
+	Day   uint8  // 0x0A
+	Month uint8  // 0x0B
 }
 
 type ExtraHeader struct {
@@ -171,26 +171,28 @@ func ParseMicrocode(mcBytes []byte) (*Microcode, error) {
 		log.Printf("Could not parse microcode extended header")
 	}
 
+	m.HeaderExtra = mce
+
 	rsaBytes := mcExtraBytes[0x80:]
 	rsa := RSAHeader{}
-
-	if mce.ModuleSize == 0 {
-		//TODO mce = nil
-		log.Println("mce.ModuleSize == 0")
-	} else if mce.ModuleSize == 0xA1 {
-		rsa.RSAPublicKey = rsaBytes[:0x100]
-		rsa.RSASignature = rsaBytes[0x100+0x4 : 0x100+0x4+0x100]
-		rsa.RSAExponent = binary.LittleEndian.Uint32(rsaBytes[0x100 : 0x100+0x4])
-		m.Encryption = &rsa
-	} else if mce.ModuleSize == 0xE0 {
-		rsa.RSAPublicKey = rsaBytes[:0x180]
-		rsa.RSASignature = rsaBytes[0x180 : 0x180+0x180]
-		rsa.RSAExponent = 0x10001
-		m.Encryption = &rsa
-	} else {
-		log.Printf("Unknown Modules Size: 0x%08X", mce.ModuleSize)
+	if mce != nil {
+		if mce.ModuleSize == 0 {
+			//TODO mce = nil
+			log.Println("mce.ModuleSize == 0")
+		} else if mce.ModuleSize == 0xA1 {
+			rsa.RSAPublicKey = rsaBytes[:0x100]
+			rsa.RSASignature = rsaBytes[0x100+0x4 : 0x100+0x4+0x100]
+			rsa.RSAExponent = binary.LittleEndian.Uint32(rsaBytes[0x100 : 0x100+0x4])
+			m.Encryption = &rsa
+		} else if mce.ModuleSize == 0xE0 {
+			rsa.RSAPublicKey = rsaBytes[:0x180]
+			rsa.RSASignature = rsaBytes[0x180 : 0x180+0x180]
+			rsa.RSAExponent = 0x10001
+			m.Encryption = &rsa
+		} else {
+			log.Printf("Unknown Modules Size: 0x%08X", mce.ModuleSize)
+		}
 	}
-
 	// We still have space for an extended (!= extra) header
 	if mc.TotalSize <= mc.DataSize+0x30 {
 		extendedOffset := 0x30 + mc.DataSize
